@@ -11,6 +11,16 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     environment:

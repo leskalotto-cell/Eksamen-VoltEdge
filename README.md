@@ -24,6 +24,8 @@ docker compose up --build
 
 API'et er nu tilgængeligt på **http://localhost:8000**
 
+Dashboardet er tilgængeligt på **http://localhost:3000**
+
 ---
 
 ## API dokumentation
