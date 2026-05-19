@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: volt
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: sessions
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Opsæt Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer dependencies
+        run: pip install -r requirements.txt
+
+      - name: Kør unit tests (domain)
+        run: pytest tests/test_domain.py -v
+
+      - name: Kør integrationstests (API)
+        env:
+          DATABASE_URL: postgresql://volt:secret@localhost:5432/sessions
+          API_KEY: test-key
+        run: pytest tests/test_api.py -v
+
+      - name: Byg Docker image
+        run: docker build -t voltedge-session:${{ github.sha }} .
+
+      - name: Smoke test – Docker image starter
+        run: |
+          docker run -d \
+            --name smoke \
+            -e DATABASE_URL=postgresql://volt:secret@localhost:5432/sessions \
+            -e API_KEY=test-key \
+            --network host \
+            voltedge-session:${{ github.sha }}
+          sleep 5
+          curl --fail http://localhost:8000/health
+          docker rm -f smoke

@@ -1,0 +1,22 @@
+# Miljøvariabler – må aldrig committes
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Docker volumes (lokal data)
+pgdata/

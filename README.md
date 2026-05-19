@@ -1,0 +1,166 @@
+# VoltEdge – Charging Session API
+
+MVP til styring af EV-ladesessioner, udviklet som eksamensprojekt for **Økonomi og IT, 6.2 semestereksamen** på Erhvervsakademi København.
+
+Applikationen implementerer **Charging Session**-domænet fra VoltEdge Mobility A/S-casen ved hjælp af Domain Driven Design, FastAPI og PostgreSQL.
+
+---
+
+## Kom i gang
+
+### Krav
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installeret og kørende
+
+### Start applikationen
+
+```bash
+# 1. Klon repository
+git clone https://github.com/<dit-brugernavn>/voltedge-session.git
+cd voltedge-session
+
+# 2. Start API + database med Docker Compose
+docker compose up --build
+```
+
+API'et er nu tilgængeligt på **http://localhost:8000**
+
+---
+
+## API dokumentation
+
+FastAPI genererer automatisk interaktiv dokumentation:
+
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
+
+### Endpoints
+
+| Method | Endpoint | Beskrivelse |
+|--------|----------|-------------|
+| GET | `/health` | Sundhedstjek |
+| POST | `/sessions/` | Opret ny session (INITIATED) |
+| POST | `/sessions/{id}/start` | Start session (→ ACTIVE) |
+| POST | `/sessions/{id}/end` | Afslut session med kWh og tarif (→ COMPLETED) |
+| GET | `/sessions/{id}` | Hent sessiondetaljer |
+| GET | `/sessions/` | List alle sessioner |
+| GET | `/sessions/stats/summary` | Aggregeret statistik til BI |
+
+### Autentificering
+
+Alle POST-endpoints kræver en API-nøgle i headeren:
+
+```
+X-API-Key: dev-secret-key
+```
+
+(Standardnøglen i dev-miljøet. Sæt `API_KEY` i `.env` til produktion.)
+
+---
+
+## Eksempel – komplet session livscyklus
+
+```bash
+# 1. Opret session
+curl -X POST http://localhost:8000/sessions/ \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret-key" \
+  -d '{"charger_id": "CHG-01", "connector_id": "CON-1", "user_id": "USR-42"}'
+
+# Gem session_id fra svaret, fx:
+SESSION_ID="<indsæt-session-id-her>"
+
+# 2. Start session
+curl -X POST http://localhost:8000/sessions/$SESSION_ID/start \
+  -H "X-API-Key: dev-secret-key"
+
+# 3. Afslut session (15 kWh á 2,50 DKK = 37,50 DKK)
+curl -X POST http://localhost:8000/sessions/$SESSION_ID/end \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret-key" \
+  -d '{"energy_kwh": 15.0, "tariff_rate": 2.50}'
+
+# 4. Se statistik
+curl http://localhost:8000/sessions/stats/summary
+```
+
+---
+
+## Kør tests lokalt
+
+```bash
+# Installer dependencies
+pip install -r requirements.txt
+
+# Kør unit tests (kræver ikke database)
+pytest tests/test_domain.py -v
+
+# Kør integrationstests (kræver kørende PostgreSQL)
+DATABASE_URL=postgresql://volt:secret@localhost:5432/sessions \
+API_KEY=test-key \
+pytest tests/test_api.py -v
+```
+
+---
+
+## Projektstruktur
+
+```
+voltedge-session/
+├── app/
+│   ├── domain/
+│   │   ├── models.py          # ChargingSession (Aggregate Root), value objects
+│   │   └── services.py        # PricingService (Domain Service)
+│   ├── api/
+│   │   └── routes.py          # FastAPI endpoints
+│   ├── db/
+│   │   ├── database.py        # SQLAlchemy setup og ORM-model
+│   │   └── repositories.py    # SessionRepository
+│   └── main.py                # App entry point
+├── tests/
+│   ├── test_domain.py         # Unit tests – domænelogik og invarianter
+│   └── test_api.py            # Integrationstests – alle endpoints
+├── .github/workflows/ci.yml   # GitHub Actions CI/CD pipeline
+├── docker-compose.yml         # API + PostgreSQL
+├── Dockerfile
+├── requirements.txt
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Tech Stack
+
+| Teknologi | Rolle |
+|-----------|-------|
+| Python 3.12 + FastAPI | API framework med automatisk OpenAPI-dokumentation |
+| PostgreSQL 16 | Relationel database – ACID-compliant sessionsdata |
+| SQLAlchemy | ORM og databaseadgang |
+| Docker + Docker Compose | Containerisering og lokal orkestrering |
+| GitHub Actions | CI/CD – test, byg og smoke test ved hvert push |
+| pytest + httpx | Unit- og integrationstests |
+
+---
+
+## CI/CD
+
+GitHub Actions-pipelinen kører automatisk ved hvert push til `main` eller `develop`:
+
+1. Installer Python-dependencies
+2. Kør unit tests mod domænelogikken
+3. Kør integrationstests mod rigtig PostgreSQL
+4. Byg Docker image
+5. Smoke test – verificer at containeren starter og `/health` svarer
+
+---
+
+## DDD-begreber i koden
+
+| DDD-element | Implementering |
+|-------------|---------------|
+| Aggregate Root | `ChargingSession` – håndhæver statusovergange |
+| Value Object | `EnergyDelivered`, `SessionCost` – immutable, ingen identitet |
+| Domain Service | `PricingService` – beregner pris uden sideeffekter |
+| Ubiquitous Language | Begreber som `charger_id`, `energy_kwh`, `tariff_rate` er konsistente fra API til database |
+| Bounded Context | Charging Session Management – afgrænset fra Billing og Device Management |
