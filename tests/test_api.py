@@ -112,3 +112,65 @@ def test_stats_summary():
     data = r.json()
     assert "total_sessions" in data
     assert "total_revenue_dkk" in data
+
+
+def test_stats_summary_has_all_dashboard_fields():
+    r = client.get("/sessions/stats/summary")
+    assert r.status_code == 200
+    data = r.json()
+
+    expected_keys = {
+        "total_sessions",
+        "completed_sessions",
+        "faulted_sessions",
+        "total_energy_kwh",
+        "total_revenue_dkk",
+        "avg_session_cost_dkk",
+    }
+
+    assert expected_keys == set(data.keys())
+    assert isinstance(data["total_sessions"], int)
+    assert isinstance(data["completed_sessions"], int)
+    assert isinstance(data["faulted_sessions"], int)
+    assert isinstance(data["total_energy_kwh"], float)
+    assert isinstance(data["total_revenue_dkk"], float)
+    assert isinstance(data["avg_session_cost_dkk"], float)
+    assert data["total_sessions"] >= 0
+    assert data["completed_sessions"] >= 0
+    assert data["faulted_sessions"] >= 0
+    assert data["total_energy_kwh"] >= 0.0
+    assert data["total_revenue_dkk"] >= 0.0
+    assert data["avg_session_cost_dkk"] >= 0.0
+
+
+def test_stats_summary_counts_all_registered_sessions():
+    summary_before = client.get("/sessions/stats/summary")
+    assert summary_before.status_code == 200
+    before_data = summary_before.json()
+
+    created_ids = []
+    for i in range(3):
+        r = client.post("/sessions/", json={
+            "charger_id": f"CHG-REG-{i}",
+            "connector_id": f"CON-{i}",
+            "user_id": f"USR-{i}",
+        }, headers=HEADERS)
+        assert r.status_code == 201
+        created_ids.append(r.json()["session_id"])
+
+    r = client.post(f"/sessions/{created_ids[0]}/start", headers=HEADERS)
+    assert r.status_code == 200
+    r = client.post(f"/sessions/{created_ids[0]}/end", json={
+        "energy_kwh": 18.5,
+        "tariff_rate": 2.25,
+    }, headers=HEADERS)
+    assert r.status_code == 200
+
+    summary_after = client.get("/sessions/stats/summary")
+    assert summary_after.status_code == 200
+    after_data = summary_after.json()
+
+    assert after_data["total_sessions"] == before_data["total_sessions"] + 3
+    assert after_data["completed_sessions"] == before_data["completed_sessions"] + 1
+    assert after_data["total_energy_kwh"] >= before_data["total_energy_kwh"]
+    assert after_data["total_revenue_dkk"] >= before_data["total_revenue_dkk"]
