@@ -1,13 +1,15 @@
 import logging
+import os
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.domain.models import ChargingSession, SessionStatus
 from app.metrics import SESSION_EVENTS_TOTAL
-import os
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sessions", tags=["Charging Sessions"])

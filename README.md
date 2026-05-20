@@ -18,13 +18,18 @@ Applikationen implementerer **Charging Session**-domænet fra VoltEdge Mobility 
 git clone https://github.com/<dit-brugernavn>/voltedge-session.git
 cd voltedge-session
 
-# 2. Start API, database, Prometheus og Grafana med Docker Compose
+# 2. Kopiér .env.example til .env og sæt din Neon DATABASE_URL
+cp .env.example .env
+
+# 3. Start API, database, Prometheus og Grafana med Docker Compose
 docker compose up --build
 ```
 
 API'et er nu tilgængeligt på **http://localhost:8000**
 
 Frontend-dashboardet er tilgængeligt på **http://localhost:3000**
+
+Prometheus er tilgængeligt på **http://localhost:9090**
 
 Prometheus er tilgængeligt på **http://localhost:9090**
 
@@ -107,14 +112,19 @@ curl http://localhost:8000/sessions/stats/summary
 # Installer dependencies
 pip install -r requirements.txt
 
+# Kopiér .env.example til .env og indsæt din Neon DATABASE_URL
+cp .env.example .env
+```
+
+```bash
 # Kør unit tests (kræver ikke database)
 pytest tests/test_domain.py -v
 
-# Kør integrationstests (kræver kørende PostgreSQL)
-DATABASE_URL=postgresql://volt:secret@localhost:5432/sessions \
-API_KEY=test-key \
+# Kør integrationstests (kræver kørende PostgreSQL eller Neon)
 pytest tests/test_api.py -v
 ```
+
+> Bemærk: appen læser `DATABASE_URL` fra `.env` via `python-dotenv`.
 
 ---
 
@@ -123,26 +133,57 @@ pytest tests/test_api.py -v
 ```
 voltedge-session/
 ├── app/
-│   ├── domain/
-│   │   ├── models.py          # ChargingSession (Aggregate Root), value objects
-│   │   └── services.py        # PricingService (Domain Service)
+│   ├── __init__.py
+│   ├── main.py                   # FastAPI app entry point + middleware
+│   ├── metrics.py                # Prometheus metrics (request count, latency, session events)
 │   ├── api/
-│   │   └── routes.py          # FastAPI endpoints
+│   │   ├── __init__.py
+│   │   └── routes.py             # REST endpoints for charging sessions
 │   ├── db/
-│   │   ├── database.py        # SQLAlchemy setup og ORM-model
-│   │   └── repositories.py    # SessionRepository
-│   └── main.py                # App entry point
+│   │   ├── __init__.py
+│   │   ├── database.py           # SQLAlchemy setup, engine, ORM models
+│   │   └── repositories.py       # SessionRepository (data access layer)
+│   └── domain/
+│       ├── __init__.py
+│       ├── models.py             # ChargingSession (Aggregate Root), value objects
+│       └── services.py           # PricingService (Domain Service)
 ├── tests/
-│   ├── test_domain.py         # Unit tests – domænelogik og invarianter
-│   └── test_api.py            # Integrationstests – alle endpoints
-├── .github/workflows/ci.yml   # GitHub Actions CI/CD pipeline
-├── docker-compose.yml         # API + PostgreSQL
-├── Dockerfile
-├── requirements.txt
-├── .env.example
+│   ├── __init__.py
+│   ├── test_domain.py            # Unit tests – domænelogik og invarianter
+│   └── test_api.py               # Integrationstests – alle endpoints
+├── frontend/
+│   └── index.html                # Dashboard served by Nginx (docker-compose)
+├── monitoring/
+│   ├── prometheus.yml            # Prometheus scrape config
+│   └── grafana/
+│       ├── dashboards/           # Grafana JSON dashboards
+│       └── provisioning/         # Grafana datasources & dashboard providers
+├── .github/
+│   └── workflows/
+│       └── ci.yml                # GitHub Actions CI/CD pipeline
+├── docker-compose.yml            # Full stack: API + DB + Prometheus + Grafana + Nginx
+├── Dockerfile                    # Python API container image
+├── requirements.txt              # Python dependencies
+├── .env.example                  # Environment template (copy to .env)
+├── .env                          # Local environment (git-ignored)
 ├── .gitignore
 └── README.md
 ```
+
+### Mappers formål
+
+| Folder | Formål |
+|--------|--------|
+| `app/` | Hele applikationen (FastAPI, domæne, data-adgang, metrikker) |
+| `app/api/` | REST-endpoints til charging sessions |
+| `app/db/` | Databaseopsætning (SQLAlchemy) og data-adgang (repositories) |
+| `app/domain/` | Domænelogik – ChargingSession, value objects, business services |
+| `tests/` | Unit- og integrationstests |
+| `frontend/` | HTML-dashboard til Nginx (vises på port 3000) |
+| `monitoring/` | Prometheus-config + Grafana-dashboards |
+| `.github/workflows/` | CI/CD pipeline for testing og building |
+
+---
 
 ---
 

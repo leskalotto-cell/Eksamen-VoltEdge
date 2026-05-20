@@ -3,8 +3,10 @@ services:
     build: .
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://volt:secret@db:5432/sessions
+      DATABASE_URL: ${DATABASE_URL:-postgresql://volt:secret@db:5432/sessions}
       API_KEY: ${API_KEY:-dev-secret-key}
     depends_on:
       db:
@@ -42,7 +44,7 @@ services:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP=false
+      GF_USERS_ALLOW_SIGN_UP: "false"
     depends_on:
       - prometheus
     restart: unless-stopped

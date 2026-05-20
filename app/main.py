@@ -1,8 +1,7 @@
 import logging
-import os
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from app.api.routes import router
 from app.db.database import create_tables
 from app.metrics import REQUEST_COUNT, REQUEST_LATENCY

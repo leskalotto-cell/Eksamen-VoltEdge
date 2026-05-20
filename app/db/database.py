@@ -1,9 +1,11 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, String, Float, DateTime, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.domain.models import SessionStatus
 
+load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://volt:secret@db:5432/sessions")
 
 engine = create_engine(DATABASE_URL)
