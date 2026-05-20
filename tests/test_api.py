@@ -35,6 +35,12 @@ def test_health():
     assert r.json()["status"] == "ok"
 
 
+def test_metrics_endpoint():
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    assert "voltedge_request_count" in r.text
+
+
 def test_create_session():
     r = client.post("/sessions/", json={
         "charger_id": "CHG-01",

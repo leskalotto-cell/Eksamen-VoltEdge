@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.repositories import SessionRepository
 from app.domain.models import ChargingSession, SessionStatus
+from app.metrics import SESSION_EVENTS_TOTAL
 import os
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ def create_session(body: CreateSessionRequest, db: Session = Depends(get_db)):
     )
     repo = SessionRepository(db)
     repo.save(session)
+    SESSION_EVENTS_TOTAL.labels(event="created").inc()
     logger.info("Session created: %s", session.session_id)
     return _format(session)
 
@@ -88,6 +90,7 @@ def start_session(session_id: UUID, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     repo.save(session)
+    SESSION_EVENTS_TOTAL.labels(event="started").inc()
     logger.info("Session started: %s", session_id)
     return _format(session)
 
@@ -104,6 +107,7 @@ def end_session(session_id: UUID, body: EndSessionRequest, db: Session = Depends
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     repo.save(session)
+    SESSION_EVENTS_TOTAL.labels(event="completed").inc()
     logger.info("Session completed: %s – %.2f DKK", session_id, session.session_cost.amount_dkk)
     return _format(session)
 

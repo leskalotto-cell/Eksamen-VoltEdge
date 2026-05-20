@@ -18,13 +18,17 @@ Applikationen implementerer **Charging Session**-domænet fra VoltEdge Mobility 
 git clone https://github.com/<dit-brugernavn>/voltedge-session.git
 cd voltedge-session
 
-# 2. Start API + database med Docker Compose
+# 2. Start API, database, Prometheus og Grafana med Docker Compose
 docker compose up --build
 ```
 
 API'et er nu tilgængeligt på **http://localhost:8000**
 
-Dashboardet er tilgængeligt på **http://localhost:3000**
+Frontend-dashboardet er tilgængeligt på **http://localhost:3000**
+
+Prometheus er tilgængeligt på **http://localhost:9090**
+
+Grafana er tilgængeligt på **http://localhost:3001**
 
 ---
 
@@ -40,12 +44,22 @@ FastAPI genererer automatisk interaktiv dokumentation:
 | Method | Endpoint | Beskrivelse |
 |--------|----------|-------------|
 | GET | `/health` | Sundhedstjek |
+| GET | `/metrics` | Prometheus metrikker |
 | POST | `/sessions/` | Opret ny session (INITIATED) |
 | POST | `/sessions/{id}/start` | Start session (→ ACTIVE) |
 | POST | `/sessions/{id}/end` | Afslut session med kWh og tarif (→ COMPLETED) |
 | GET | `/sessions/{id}` | Hent sessiondetaljer |
 | GET | `/sessions/` | List alle sessioner |
 | GET | `/sessions/stats/summary` | Aggregeret statistik til BI |
+
+### Overvågning og Grafana
+
+Applikationen eksponerer Prometheus-metrikker på `/metrics`. Du kan starte hele stakken med Docker Compose og få:
+
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3001
+
+Grafana er forudkonfigureret med en Prometheus-datasource og et dashboard til `voltedge_request_count` og `voltedge_session_events_total`.
 
 ### Autentificering
 
