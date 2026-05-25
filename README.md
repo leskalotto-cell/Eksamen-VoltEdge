@@ -15,7 +15,12 @@ cd voltedge-session
 cp .env.example .env
 ```
 
-3. Start hele stacken
+3. Installer dependencies til test- og helper-scripts
+```bash
+python -m pip install -r requirements.txt
+```
+
+4. Start hele stacken
 ```bash
 docker compose up --build
 ```
@@ -32,27 +37,42 @@ DATABASE_URL=postgresql://[user]:[password]@[host].neon.tech/[dbname]?sslmode=re
 API_KEY=skift-dette
 ```
 
-## Serviceoversigt
-- `api` – FastAPI backend
-- `frontend` – Nginx, der serves `frontend/index.html`
+## Verificering
+Kør følgende for at sikre API og dokumentation:
 
-## Test efter opstart
-Kør disse to PowerShell-kommandoer for at verificere:
+PowerShell:
 ```powershell
+curl.exe http://localhost:8000/health
+curl.exe http://localhost:8000/docs
+```
+
+bash/WSL:
+```bash
 curl http://localhost:8000/health
 curl http://localhost:8000/docs
 ```
 
+## Manuel test og helper-scripts
+Der er helper-scripts i `tests/manual/`:
+- `tests/manual/run_db_test.py` – test af Neon databaseforbindelse
+- `tests/manual/run_load_test.py` – opret mange sessions mod API'et
+- `tests/manual/inspect_schema.py` – inspektion af tabelstruktur i Neon
+
+Eksempel:
+```bash
+python tests/manual/run_load_test.py --count 20 --start --end
+```
+
+## Serviceoversigt
+- `api` – FastAPI backend
+- `frontend` – Nginx, der serves `frontend/index.html`
+
 ## Noter
 - Der er ingen lokal PostgreSQL-container i `docker-compose.yml`
-- Der er ingen Prometheus eller Grafana i denne setup
 - `api` læser `DATABASE_URL` og `API_KEY` direkte fra `.env`
+- Hvis du ændrer `API_KEY`, skal `frontend/index.html` også bruge samme værdi
 
-## Tips
-- Hvis du ønsker at bruge en anden `API_KEY`, skal den være ens i både `.env` og i `frontend/index.html`
-- `frontend/index.html` peger på `http://localhost:8000`
-
-### Mappers formål
+## Projektstruktur
 
 | Folder | Formål |
 |--------|--------|
@@ -61,11 +81,10 @@ curl http://localhost:8000/docs
 | `app/db/` | Databaseopsætning (SQLAlchemy) og data-adgang (repositories) |
 | `app/domain/` | Domænelogik – ChargingSession, value objects, business services |
 | `tests/` | Unit- og integrationstests |
+| `tests/manual/` | Manuelle helper-scripts |
 | `frontend/` | HTML-dashboard til Nginx (vises på port 3000) |
-| `monitoring/` | Prometheus-config + Grafana-dashboards |
+| `monitoring/` | Legacy Prometheus/Grafana konfiguration (ikke aktiv i nuværende `docker-compose.yml`) |
 | `.github/workflows/` | CI/CD pipeline for testing og building |
-
----
 
 ---
 
@@ -74,7 +93,7 @@ curl http://localhost:8000/docs
 | Teknologi | Rolle |
 |-----------|-------|
 | Python 3.12 + FastAPI | API framework med automatisk OpenAPI-dokumentation |
-| PostgreSQL 16 | Relationel database – ACID-compliant sessionsdata |
+| PostgreSQL (Neon) | Managed database for persistent sessiondata |
 | SQLAlchemy | ORM og databaseadgang |
 | Docker + Docker Compose | Containerisering og lokal orkestrering |
 | GitHub Actions | CI/CD – test, byg og smoke test ved hvert push |
@@ -86,7 +105,7 @@ curl http://localhost:8000/docs
 
 GitHub Actions-pipelinen kører automatisk ved hvert push til `main` eller `develop`:
 
-1. Installer Python-dependencies
+1. Installer Python dependencies
 2. Kør unit tests mod domænelogikken
 3. Kør integrationstests mod rigtig PostgreSQL
 4. Byg Docker image
