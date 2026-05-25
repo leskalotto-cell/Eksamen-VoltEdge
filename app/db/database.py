@@ -6,9 +6,21 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from app.domain.models import SessionStatus
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://volt:secret@db:5432/sessions")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL must be set in .env")
 
-engine = create_engine(DATABASE_URL)
+connect_args = {}
+if "sslmode=" not in DATABASE_URL:
+    connect_args["sslmode"] = "require"
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=2,
+    connect_args=connect_args,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

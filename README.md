@@ -1,174 +1,56 @@
 # VoltEdge – Charging Session API
 
-MVP til styring af EV-ladesessioner, udviklet som eksamensprojekt for **Økonomi og IT, 6.2 semestereksamen** på Erhvervsakademi København.
-
-Applikationen implementerer **Charging Session**-domænet fra VoltEdge Mobility A/S-casen ved hjælp af Domain Driven Design, FastAPI og PostgreSQL.
-
----
+Denne version kører med Neon som produktionsdatabase og starter hele applikationen med én enkel kommando.
 
 ## Kom i gang
 
-### Krav
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installeret og kørende
-
-### Start applikationen
-
+1. Klon repository
 ```bash
-# 1. Klon repository
 git clone https://github.com/<dit-brugernavn>/voltedge-session.git
 cd voltedge-session
+```
 
-# 2. Kopiér .env.example til .env og sæt din Neon DATABASE_URL
+2. Kopiér `.env.example` til `.env` og indsæt din Neon connection string
+```bash
 cp .env.example .env
+```
 
-# 3. Start API, database, Prometheus og Grafana med Docker Compose
+3. Start hele stacken
+```bash
 docker compose up --build
 ```
 
-API'et er nu tilgængeligt på **http://localhost:8000**
+Når stakken kører, er disse tilgængelige:
+- Frontend: http://localhost:3000
+- API: http://localhost:8000
+- Swagger: http://localhost:8000/docs
 
-Frontend-dashboardet er tilgængeligt på **http://localhost:3000**
-
-Prometheus er tilgængeligt på **http://localhost:9090**
-
-Prometheus er tilgængeligt på **http://localhost:9090**
-
-Grafana er tilgængeligt på **http://localhost:3001**
-
----
-
-## API dokumentation
-
-FastAPI genererer automatisk interaktiv dokumentation:
-
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
-
-### Endpoints
-
-| Method | Endpoint | Beskrivelse |
-|--------|----------|-------------|
-| GET | `/health` | Sundhedstjek |
-| GET | `/metrics` | Prometheus metrikker |
-| POST | `/sessions/` | Opret ny session (INITIATED) |
-| POST | `/sessions/{id}/start` | Start session (→ ACTIVE) |
-| POST | `/sessions/{id}/end` | Afslut session med kWh og tarif (→ COMPLETED) |
-| GET | `/sessions/{id}` | Hent sessiondetaljer |
-| GET | `/sessions/` | List alle sessioner |
-| GET | `/sessions/stats/summary` | Aggregeret statistik til BI |
-
-### Overvågning og Grafana
-
-Applikationen eksponerer Prometheus-metrikker på `/metrics`. Du kan starte hele stakken med Docker Compose og få:
-
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3001
-
-Grafana er forudkonfigureret med en Prometheus-datasource og et dashboard til `voltedge_request_count` og `voltedge_session_events_total`.
-
-### Autentificering
-
-Alle POST-endpoints kræver en API-nøgle i headeren:
-
-```
-X-API-Key: dev-secret-key
+## .env
+Din `.env` skal indeholde mindst disse to variabler:
+```env
+DATABASE_URL=postgresql://[user]:[password]@[host].neon.tech/[dbname]?sslmode=require
+API_KEY=skift-dette
 ```
 
-(Standardnøglen i dev-miljøet. Sæt `API_KEY` i `.env` til produktion.)
+## Serviceoversigt
+- `api` – FastAPI backend
+- `frontend` – Nginx, der serves `frontend/index.html`
 
----
-
-## Eksempel – komplet session livscyklus
-
-```bash
-# 1. Opret session
-curl -X POST http://localhost:8000/sessions/ \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-secret-key" \
-  -d '{"charger_id": "CHG-01", "connector_id": "CON-1", "user_id": "USR-42"}'
-
-# Gem session_id fra svaret, fx:
-SESSION_ID="<indsæt-session-id-her>"
-
-# 2. Start session
-curl -X POST http://localhost:8000/sessions/$SESSION_ID/start \
-  -H "X-API-Key: dev-secret-key"
-
-# 3. Afslut session (15 kWh á 2,50 DKK = 37,50 DKK)
-curl -X POST http://localhost:8000/sessions/$SESSION_ID/end \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-secret-key" \
-  -d '{"energy_kwh": 15.0, "tariff_rate": 2.50}'
-
-# 4. Se statistik
-curl http://localhost:8000/sessions/stats/summary
+## Test efter opstart
+Kør disse to PowerShell-kommandoer for at verificere:
+```powershell
+curl http://localhost:8000/health
+curl http://localhost:8000/docs
 ```
 
----
+## Noter
+- Der er ingen lokal PostgreSQL-container i `docker-compose.yml`
+- Der er ingen Prometheus eller Grafana i denne setup
+- `api` læser `DATABASE_URL` og `API_KEY` direkte fra `.env`
 
-## Kør tests lokalt
-
-```bash
-# Installer dependencies
-pip install -r requirements.txt
-
-# Kopiér .env.example til .env og indsæt din Neon DATABASE_URL
-cp .env.example .env
-```
-
-```bash
-# Kør unit tests (kræver ikke database)
-pytest tests/test_domain.py -v
-
-# Kør integrationstests (kræver kørende PostgreSQL eller Neon)
-pytest tests/test_api.py -v
-```
-
-> Bemærk: appen læser `DATABASE_URL` fra `.env` via `python-dotenv`.
-
----
-
-## Projektstruktur
-
-```
-voltedge-session/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                   # FastAPI app entry point + middleware
-│   ├── metrics.py                # Prometheus metrics (request count, latency, session events)
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes.py             # REST endpoints for charging sessions
-│   ├── db/
-│   │   ├── __init__.py
-│   │   ├── database.py           # SQLAlchemy setup, engine, ORM models
-│   │   └── repositories.py       # SessionRepository (data access layer)
-│   └── domain/
-│       ├── __init__.py
-│       ├── models.py             # ChargingSession (Aggregate Root), value objects
-│       └── services.py           # PricingService (Domain Service)
-├── tests/
-│   ├── __init__.py
-│   ├── test_domain.py            # Unit tests – domænelogik og invarianter
-│   └── test_api.py               # Integrationstests – alle endpoints
-├── frontend/
-│   └── index.html                # Dashboard served by Nginx (docker-compose)
-├── monitoring/
-│   ├── prometheus.yml            # Prometheus scrape config
-│   └── grafana/
-│       ├── dashboards/           # Grafana JSON dashboards
-│       └── provisioning/         # Grafana datasources & dashboard providers
-├── .github/
-│   └── workflows/
-│       └── ci.yml                # GitHub Actions CI/CD pipeline
-├── docker-compose.yml            # Full stack: API + DB + Prometheus + Grafana + Nginx
-├── Dockerfile                    # Python API container image
-├── requirements.txt              # Python dependencies
-├── .env.example                  # Environment template (copy to .env)
-├── .env                          # Local environment (git-ignored)
-├── .gitignore
-└── README.md
-```
+## Tips
+- Hvis du ønsker at bruge en anden `API_KEY`, skal den være ens i både `.env` og i `frontend/index.html`
+- `frontend/index.html` peger på `http://localhost:8000`
 
 ### Mappers formål
 
