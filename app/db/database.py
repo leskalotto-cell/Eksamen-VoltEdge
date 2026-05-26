@@ -11,8 +11,13 @@ if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL must be set in .env")
 
 connect_args = {}
-if "sslmode=" not in DATABASE_URL and ".neon.tech" in DATABASE_URL:
+
+# For Neon, require SSL if not already specified
+if ".neon.tech" in DATABASE_URL and "sslmode=" not in DATABASE_URL:
     connect_args["sslmode"] = "require"
+# For local/test databases, disable SSL if not already specified
+elif "sslmode=" not in DATABASE_URL:
+    connect_args["sslmode"] = "disable"
 
 engine = create_engine(
     DATABASE_URL,
